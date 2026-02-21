@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+mkdir -p "$ASDF_DOWNLOAD_PATH"
+
+EXT=$(get_ext)
+archive_file="$ASDF_DOWNLOAD_PATH/foundry_archive.$EXT"
+download_release "$ASDF_INSTALL_VERSION" "$archive_file"
+
+# Extract the archive
+if [[ "$EXT" == "zip" ]]; then
+  unzip -q "$archive_file" -d "$ASDF_DOWNLOAD_PATH"
+elif [[ "$EXT" == "tar.gz" ]]; then
+  tar -xzf "$archive_file" -C "$ASDF_DOWNLOAD_PATH"
+else
+  fail "Unknown archive format: $EXT"
+fi
+
+rm "$archive_file"
