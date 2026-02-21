@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
+
+# shellcheck source=../lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+# Remove libusb symlink on macOS if it points to this installation
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  local target_path="/usr/local/opt/libusb/lib"
+  local lib_path="$ASDF_INSTALL_PATH/lib/libusb-1.0.0.dylib"
+  
+  if [ -L "$target_path/libusb-1.0.0.dylib" ]; then
+    local link_target="$(readlink "$target_path/libusb-1.0.0.dylib")"
+    if [ "$link_target" == "$lib_path" ]; then
+      rm "$target_path/libusb-1.0.0.dylib"
+      echo "* Removed libusb symlink"
+    fi
+  fi
+fi

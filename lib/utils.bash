@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where
-# releases can be downloaded for foundry.
 GH_REPO="https://github.com/foundry-rs/foundry"
 TOOL_NAME="foundry"
 TOOL_TEST="forge --version"
@@ -15,7 +13,6 @@ fail() {
 
 curl_opts=(-fsSL)
 
-# NOTE: You might want to remove this if foundry is not hosted on GitHub releases.
 if [ -n "${GITHUB_API_TOKEN:-}" ]; then
   curl_opts=("${curl_opts[@]}" -H "Authorization: token $GITHUB_API_TOKEN")
 fi
@@ -28,7 +25,7 @@ sort_versions() {
 list_github_tags() {
   git ls-remote --tags --refs "$GH_REPO" |
     grep -o 'refs/tags/.*' | cut -d/ -f3- |
-    sed 's/^v//' # NOTE: You might want to adapt this sed to remove non-version strings from tags
+    sed 's/^v//'
 }
 
 list_all_versions() {
@@ -91,6 +88,11 @@ install_version() {
     fail "asdf-$TOOL_NAME supports release installs only"
   fi
 
+  # Ensure libusb is available on macOS
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    ensure_libusb "$install_path"
+  fi
+
   local bin_path="$install_path/bin"
   mkdir -p "$bin_path"
 
@@ -107,4 +109,39 @@ install_version() {
   test -x "$bin_path/$tool_cmd" || fail "Expected $bin_path/$tool_cmd to be executable."
 
   echo "$TOOL_NAME $version installation was successful!"
+}
+
+ensure_libusb() {
+  local install_path="$1"
+  local lib_path="$install_path/lib"
+  local target_path="/usr/local/opt/libusb/lib"
+  
+  # Check if libusb already exists in target location
+  if [ -f "$target_path/libusb-1.0.0.dylib" ]; then
+    return 0
+  fi
+
+  echo "* libusb not found, compiling from source..."
+  
+  local libusb_version="1.0.27"
+  local libusb_url="https://github.com/libusb/libusb/releases/download/v${libusb_version}/libusb-${libusb_version}.tar.bz2"
+  local temp_dir="$(mktemp -d)"
+  
+  cd "$temp_dir"
+  curl "${curl_opts[@]}" -o "libusb.tar.bz2" "$libusb_url" || fail "Could not download libusb"
+  tar -jxf "libusb.tar.bz2"
+  cd "libusb-${libusb_version}"
+  
+  ./configure --prefix="$install_path" --disable-dependency-tracking >/dev/null 2>&1 || fail "libusb configure failed"
+  make >/dev/null 2>&1 || fail "libusb build failed"
+  make install >/dev/null 2>&1 || fail "libusb install failed"
+  
+  cd /
+  rm -rf "$temp_dir"
+  
+  # Create symlink at expected location
+  mkdir -p "$target_path"
+  ln -sf "$lib_path/libusb-1.0.0.dylib" "$target_path/libusb-1.0.0.dylib"
+  
+  echo "* libusb compiled and linked successfully"
 }
