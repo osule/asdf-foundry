@@ -51,7 +51,7 @@ download_release() {
   local platform architecture EXT
   detect_platform_arch
 
-  local archive_name="foundry_${version}_${platform}_${architecture}.$EXT"
+  local archive_name="foundry_${tag}_${platform}_${architecture}.$EXT"
   url="$GH_REPO/releases/download/$tag/$archive_name"
 
   echo "* Downloading $TOOL_NAME release $version..."
